@@ -77,13 +77,22 @@ const fmt = n => Number(n || 0).toLocaleString('en-US', {maximumFractionDigits: 
 
 async function load(btn) {
   if (btn) { btn.textContent = '...'; btn.disabled = true; }
+  let why;
   try {
-    const res = await fetch(API_URL + '?t=' + Date.now());
-    const d = await res.json();
-    if (d.error) throw new Error(d.error);
+    let res;
+    try { res = await fetch(API_URL + '?t=' + Date.now()); }
+    catch (e) { why = 'ما قدرت أوصل للسيرفر. تأكد من النت، أو إن رابط API_URL صحيح.'; throw e; }
+    if (!res.ok) { why = `السيرفر رجّع خطأ (${res.status}). غالباً الرابط قديم — سوّ New version في Manage deployments.`; throw new Error(why); }
+    const text = await res.text();
+    let d;
+    try { d = JSON.parse(text); }
+    catch (e) { why = 'السيرفر رجّع صفحة بدل بيانات. تأكد إن النشر: Execute as = Me و Who has access = Anyone.'; throw e; }
+    if (d.error) { why = 'خطأ في كود Apps Script: ' + d.error; throw new Error(d.error); }
+    if (!Array.isArray(d.groups)) { why = 'شكل البيانات من السيرفر غلط (ما فيها groups).'; throw new Error(why); }
     DATA = d; render();
   } catch (err) {
-    if (!DATA) app.innerHTML = `<h1>دفتر القطية</h1><div class="empty">ما قدرت أجيب البيانات من السيرفر.<br>تأكد من النت وجرّب مرة ثانية.<br><br><button onclick="load()">إعادة المحاولة</button></div>`;
+    console.error(err);
+    if (!DATA) app.innerHTML = `<h1>دفتر القطية</h1><div class="empty">ما قدرت أجيب البيانات.<br><b>${esc(why || err.message)}</b><br><br><button onclick="load(this)">إعادة المحاولة</button></div>`;
     else if (btn) { btn.textContent = 'تحديث'; btn.disabled = false; }
   }
 }
