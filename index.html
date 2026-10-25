@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>دفتر القطية</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Reem+Kufi:wght@500;700&display=swap">
+<style>
+:root{
+  --bg:#f3f5f2;--surface:#fff;--ink:#18241f;--muted:#5d6b64;--line:#dde3de;
+  --accent:#0f6b55;--accent-soft:#e2efe9;--brass:#a5761f;--brass-soft:#f6ecd8;
+  --ok:#1d7a4a;--ok-soft:#e1f2e8;--no:#b3362f;--no-soft:#f8e3e1;
+  --display:"Reem Kufi","IBM Plex Sans Arabic",system-ui,sans-serif;
+  --body:"IBM Plex Sans Arabic",system-ui,Tahoma,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#111815;--surface:#18221e;--ink:#e7eeea;--muted:#9aaba3;--line:#2a3832;
+  --accent:#3fb592;--accent-soft:#1c3a30;--brass:#d9a648;--brass-soft:#3a2e17;
+  --ok:#5cc98d;--ok-soft:#173226;--no:#ec7a72;--no-soft:#3b1f1d;color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.6;padding:20px 16px 48px}
+.wrap{max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+h1,h2,h3{font-family:var(--display);margin:0;font-weight:700}
+h1{font-size:1.9rem;line-height:1.2}
+.sub,.note{color:var(--muted);margin:0}
+.note{font-size:.82rem}
+.num{font-variant-numeric:tabular-nums}
+.top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+button{font:inherit;cursor:pointer;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:8px 14px;min-height:40px}
+.tabs{display:flex;gap:8px;flex-wrap:wrap}
+.tabs button.on{background:var(--accent);color:var(--surface);border-color:var(--accent);font-weight:600}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+@media(max-width:600px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.stat b{display:block;font-size:1.2rem}
+.stat small{color:var(--muted)}
+.now{background:var(--accent-soft);border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:12px}
+.who{font-family:var(--display);font-size:1.7rem;color:var(--accent);line-height:1.2}
+.row{display:flex;gap:20px;align-items:flex-end;flex-wrap:wrap}
+.pill{display:inline-block;padding:2px 10px;border-radius:999px;font-size:.78rem;font-weight:600}
+.p-done{background:var(--ok-soft);color:var(--ok)}
+.p-now{background:var(--brass-soft);color:var(--brass)}
+.p-wait{background:var(--bg);color:var(--muted);border:1px solid var(--line)}
+.bar{height:6px;background:var(--line);border-radius:6px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--accent)}
+.full{background:var(--ok-soft);color:var(--ok);border-radius:12px;padding:10px 14px;font-weight:600}
+.who2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+@media(max-width:480px){.who2{grid-template-columns:1fr}}
+.who2>div{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.who2 h3{font-size:.95rem;margin-bottom:6px}
+.who2 ul{margin:0;padding:0;list-style:none;display:flex;flex-wrap:wrap;gap:6px}
+.who2 li{padding:2px 10px;border-radius:999px;font-size:.85rem}
+.ok{color:var(--ok)}.no{color:var(--no)}
+.li-ok{background:var(--ok-soft);color:var(--ok)}.li-no{background:var(--no-soft);color:var(--no)}
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
+table{width:100%;border-collapse:collapse;min-width:460px}
+th,td{padding:10px 12px;text-align:start;border-bottom:1px solid var(--line);white-space:nowrap}
+th{font-size:.8rem;color:var(--muted);font-weight:500}
+tr:last-child td{border-bottom:0}
+tbody tr{cursor:pointer}
+tbody tr:hover{background:var(--bg)}
+tr.sel{background:var(--accent-soft)!important}
+.empty{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:36px 16px;text-align:center;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+<script>
+// رابط السيرفر (Apps Script Web App)
+const API_URL = 'https://script.google.com/macros/s/AKfycby-3jxjnoAEws_p07zWVPULX7ZDyjwmEoA0QYqzptGOY7DeKrk_zYlrprNF4yvtE34/exec';
+
+let DATA = null;
+let gi = 0, sel = null;
+const app = document.getElementById('app');
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt = n => Number(n || 0).toLocaleString('en-US', {maximumFractionDigits: 3});
+
+async function load(btn) {
+  if (btn) { btn.textContent = '...'; btn.disabled = true; }
+  try {
+    const res = await fetch(API_URL + '?t=' + Date.now());
+    const d = await res.json();
+    if (d.error) throw new Error(d.error);
+    DATA = d; render();
+  } catch (err) {
+    if (!DATA) app.innerHTML = `<h1>دفتر القطية</h1><div class="empty">ما قدرت أجيب البيانات من السيرفر.<br>تأكد من النت وجرّب مرة ثانية.<br><br><button onclick="load()">إعادة المحاولة</button></div>`;
+    else if (btn) { btn.textContent = 'تحديث'; btn.disabled = false; }
+  }
+}
+
+function render() {
+  const G = DATA.groups;
+  if (!G.length) { app.innerHTML = `<h1>دفتر القطية</h1><div class="empty">ما في قطية مسجّلة للحين.</div>`; return; }
+  if (gi >= G.length) gi = 0;
+  const g = G[gi], M = g.members, n = M.length;
+  const tabs = G.length > 1 ? `<div class="tabs">${G.map((x, i) => `<button class="${i === gi ? 'on' : ''}" data-g="${i}">${esc(x.name)}</button>`).join('')}</div>` : '';
+  if (!n) { app.innerHTML = `<h1>${esc(g.name)}</h1>${tabs}<div class="empty">ما في أسماء للحين.</div>`; return; }
+
+  const cur = M.findIndex(m => !m.received);
+  if (sel === null || sel >= n) sel = cur < 0 ? n - 1 : cur;
+  const r = sel, rec = M[r];
+  const ok = M.filter(m => m.paid[r]), no = M.filter(m => !m.paid[r]);
+  const total = g.amount * n, done = M.filter(m => m.received).length;
+  const state = rec.received ? ['p-done', 'تم التسليم'] : r === cur ? ['p-now', 'الدور الحالي'] : ['p-wait', 'دور قادم'];
+
+  app.innerHTML = `
+  <div class="top"><div><h1>${esc(g.name)}</h1><p class="sub num">${esc(M[0].due)} – ${esc(M[n-1].due)}</p></div>
+    <button id="refresh">تحديث</button></div>
+  ${tabs}
+  <div class="stats">
+    <div class="stat"><small>القسط الشهري</small><b class="num">${fmt(g.amount)} د.ك</b></div>
+    <div class="stat"><small>يستلم كل شهر</small><b class="num">${fmt(total)} د.ك</b></div>
+    <div class="stat"><small>عدد الأشخاص</small><b class="num">${n}</b></div>
+    <div class="stat"><small>تم التسليم</small><b class="num">${done} / ${n}</b></div>
+  </div>
+  <div class="now">
+    <div><span class="pill ${state[0]}">${state[1]}</span> <span class="note num">الدور ${r + 1} من ${n}</span></div>
+    <div class="row">
+      <div><div class="note">المستلم</div><div class="who">${esc(rec.name)}</div></div>
+      <div><div class="note">تاريخ الاستحقاق</div><b class="num" style="font-size:1.15rem">${esc(rec.due)}</b></div>
+    </div>
+    <div class="num"><b>تم جمع ${fmt(ok.length * g.amount)} من ${fmt(total)} د.ك</b> <span class="note">(${ok.length} من ${n} دفعوا)</span></div>
+    <div class="bar"><i style="width:${ok.length / n * 100}%"></i></div>
+    ${no.length === 0 ? `<div class="full">✓ اكتمل المبلغ${rec.received ? ' وتم تسليمه لـ ' + esc(rec.name) : ''}</div>` : ''}
+    <div class="who2">
+      <div><h3 class="ok">دفع (${ok.length})</h3><ul>${ok.map(m => `<li class="li-ok">${esc(m.name)}</li>`).join('') || '<li class="note">لا أحد للحين</li>'}</ul></div>
+      <div><h3 class="no">ما دفع (${no.length})</h3><ul>${no.map(m => `<li class="li-no">${esc(m.name)}</li>`).join('') || '<li class="note">الكل دفع</li>'}</ul></div>
+    </div>
+  </div>
+  <h2>جدول الاستلام</h2>
+  <p class="note">اضغط على أي دور لعرض دفعاته.</p>
+  <div class="tablewrap"><table>
+    <thead><tr><th>الدور</th><th>تاريخ الاستحقاق</th><th>المستلم</th><th>الدفعات</th><th>الحالة</th></tr></thead>
+    <tbody>${M.map((m, i) => { const p = M.filter(x => x.paid[i]).length;
+      const s = m.received ? ['p-done', 'استلم ✓'] : i === cur ? ['p-now', 'الحالي'] : ['p-wait', 'بانتظار دوره'];
+      return `<tr data-r="${i}" class="${i === r ? 'sel' : ''}"><td class="num">${i + 1}</td><td class="num">${esc(m.due)}</td><td><b>${esc(m.name)}</b></td><td class="num">${p} / ${n}</td><td><span class="pill ${s[0]}">${s[1]}</span></td></tr>`; }).join('')}</tbody>
+  </table></div>
+  <p class="note">آخر تحديث: ${esc(DATA.updated)} · هذي الصفحة للعرض فقط.</p>`;
+}
+
+app.addEventListener('click', e => {
+  const t = e.target.closest('[data-g],[data-r],#refresh'); if (!t) return;
+  if (t.id === 'refresh') { load(t); return; }
+  if (t.dataset.g !== undefined) { gi = +t.dataset.g; sel = null; }
+  if (t.dataset.r !== undefined) sel = +t.dataset.r;
+  render();
+});
+app.innerHTML = '<h1>دفتر القطية</h1><p class="sub">جاري التحميل…</p>';
+load();
+setInterval(() => { if (!document.hidden) load(); }, 60000); // تحديث تلقائي كل دقيقة
+</script>
+</body>
+</html>
